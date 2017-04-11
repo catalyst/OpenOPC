@@ -3,6 +3,8 @@
 # OpenOPC for Python Library Module
 #
 # Copyright (c) 2007-2015 Barry Barnreiter (barrybb@gmail.com)
+# Portions:
+#  - Copyright (c) 2017 Andrew Ruthven, Catalyst IT Ltd (puck@catalyst.net.nz)
 #
 ###########################################################################
 
