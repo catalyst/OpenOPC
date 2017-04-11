@@ -1121,6 +1121,96 @@ class client():
         nodes = self.ilist(paths, recursive, flat, include_type)
         return list(nodes)
 
+   def tree(self, paths='*', recursive=False, include_type=False):
+      """Walk the tree and return a dict of what we find"""
+
+      try:
+         try:
+            browser = self._opc.CreateBrowser()
+         # For OPC servers that don't support browsing
+         except:
+            return
+
+         paths, single, valid = type_check(paths)
+         if not valid:
+            raise TypeError, "list(): 'paths' parameter must be a string or a list of strings"
+
+         if len(paths) == 0: paths = ['*']
+         nodes = {}
+
+         for path in paths:
+            queue = []
+            queue.append(path)
+
+            while len(queue) > 0:
+               tag = queue.pop(0)
+
+               browser.MoveToRoot()
+               browser.Filter = ''
+               pattern = None
+
+               path_str = '/'
+               path_list = tag.replace('.','/').split('/')
+               path_list = [p for p in path_list if len(p) > 0]
+               found_filter = False
+               path_postfix = '/'
+
+               current = nodes
+               for i, p in enumerate(path_list):
+                  if p not in current:
+                    current[p] = {}
+                  current = current[p]
+
+                  if found_filter:
+                     path_postfix += p + '/'
+                  elif p.find('*') >= 0:
+                     pattern = re.compile('^%s$' % wild2regex(p) , re.IGNORECASE)
+                     found_filter = True
+                  elif len(p) != 0:
+                     pattern = re.compile('^.*$')
+                     browser.ShowBranches()
+
+                     # Branch node, so move down
+                     if len(browser) > 0:
+                        try:
+                           browser.MoveDown(p)
+                           path_str += p + '/'
+                        except:
+                           if i < len(path_list)-1: return
+                           pattern = re.compile('^%s$' % wild2regex(p) , re.IGNORECASE)
+
+                     # Leaf node, so append all remaining path parts together
+                     # to form a single search expression
+                     else:
+                        p = string.join(path_list[i:], '.')
+                        pattern = re.compile('^%s$' % wild2regex(p) , re.IGNORECASE)
+                        break
+
+               browser.ShowBranches()
+
+               if len(browser) == 0:
+                  browser.ShowLeafs(False)
+                  lowest_level = True
+                  node_type = 'Leaf'
+               else:
+                  lowest_level = False
+                  node_type = 'Branch'
+
+               matches = filter(pattern.search, browser)
+
+               if not lowest_level and recursive:
+                  queue += [path_str + x + path_postfix for x in matches]
+               else:
+                  if lowest_level:  matches = [exceptional(browser.GetItemID,x)(x) for x in matches]
+                  if include_type:  matches = [(x, node_type) for x in matches]
+                  for node in matches:
+                     current[node] = True
+         return nodes
+
+      except pythoncom.com_error, err:
+         error_msg = 'tree: %s' % self._get_error_str(err)
+         raise OPCError, error_msg
+
     def servers(self, opc_host='localhost'):
         """Return list of available OPC servers"""
 

@@ -85,6 +85,7 @@ def usage():
    print '  -w, --write                Write values to ITEMs (use ITEM=VALUE)'
    print '  -p, --properties           View properties of ITEMs'
    print '  -l, --list                 List items at specified PATHs (tree browser)'
+   print '  -T, --tree                 List items at specified PATHs in a tree'
    print '  -f, --flat                 List all ITEM names (flat browser)'
    print '  -i, --info                 Display OPC server information'
    print '  -q, --servers              Query list of available OPC servers'
@@ -256,6 +257,11 @@ def time2str(t):
    d = datetime.datetime.fromtimestamp(t)
    return d.strftime('%x %H:%M:%S')
 
+def print_tree(tree, indent=0):
+   if isinstance(tree, dict):
+      for key in sorted(tree.keys()):
+         print "%s%s" % (" " * indent, key)
+         print_tree(tree[key], indent + 2)
 
 ######## MAIN ######## 
 
@@ -266,7 +272,7 @@ if argv.count('-') > 0:
    pipe = True
 
 try:
-   opts, args = gnu_getopt(argv[1:], 'rwlpfiqRSevx:m:C:H:P:c:h:s:L:F:z:o:a:u:t:g:y:n:', ['read','write','list','properties','flat','info','mode=','gate-host=','gate-port=','class=','host=','server=','output=','pause=','pipe','servers','sessions','repeat=','function=','append=','update=','timeout=','size=','source=','id=','verbose','recursive','rotate=','errors','name='])
+   opts, args = gnu_getopt(argv[1:], 'rwlTpfiqRSevx:m:C:H:P:c:h:s:L:F:z:o:a:u:t:g:y:n:', ['read','write','list','tree','properties','flat','info','mode=','gate-host=','gate-port=','class=','host=','server=','output=','pause=','pipe','servers','sessions','repeat=','function=','append=','update=','timeout=','size=','source=','id=','verbose','recursive','rotate=','errors','name='])
 except GetoptError:
    usage()
    exit()   
@@ -283,6 +289,7 @@ for o, a in opts:
    if o in ['-r', '--read']       : action = 'read'
    if o in ['-w', '--write']      : action = 'write'
    if o in ['-l', '--list']       : action = 'list'
+   if o in ['-t', '--tree']       : action = 'tree'
    if o in ['-f', '--flat']       : action = 'flat'
    if o in ['-p', '--properties'] : action = 'properties'
    if o in ['-i', '--info']       : action = 'info'
@@ -605,6 +612,15 @@ elif action == 'list':
 elif action == 'flat':
    try:
       output(opc.list(tags, flat=True), style)
+   except OpenOPC.OPCError, error_msg:
+      if opc_mode == 'open': error_msg = error_msg[0]
+      print error_msg
+
+# ACTION: Tree Items (Browse, display as tree)
+
+elif action == 'tree':
+   try:
+      print_tree(opc.tree(tags, recursive=recursive))
    except OpenOPC.OPCError, error_msg:
       if opc_mode == 'open': error_msg = error_msg[0]
       print error_msg
